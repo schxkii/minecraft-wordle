@@ -3,7 +3,7 @@ class MinecraftBlockWordle {
         this.targetCombination = getRandomBlockCombination();
         this.currentGuess = [];
         this.guesses = [];
-        this.maxGuesses = 6;
+        this.maxGuesses = 4;
         this.gameOver = false;
         this.board = document.getElementById('board');
         this.currentGuessDiv = document.getElementById('current-guess');

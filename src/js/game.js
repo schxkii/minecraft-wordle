@@ -1,143 +1,177 @@
-class WordleGame {
+class MinecraftBlockWordle {
     constructor() {
-        this.targetWord = getRandomWord();
-        this.currentRow = 0;
-        this.currentGuess = '';
-        this.gameOver = false;
-        this.maxGuesses = 6;
+        this.targetCombination = getRandomBlockCombination();
+        this.currentGuess = [];
         this.guesses = [];
+        this.maxGuesses = 6;
+        this.gameOver = false;
+        this.board = document.getElementById('board');
+        this.currentGuessDiv = document.getElementById('current-guess');
+        this.message = document.getElementById('message');
+        this.availableBlocksDiv = document.getElementById('available-blocks');
         
-        this.initializeBoard();
-        console.log('Target word:', this.targetWord); // For testing - remove in production
+        this.initializeGame();
     }
 
-    initializeBoard() {
-        const board = document.getElementById('board');
-        board.innerHTML = '';
-        
+    initializeGame() {
+        this.createBoard();
+        this.createBlockSelector();
+        this.setupEventListeners();
+        this.createCurrentGuessDisplay();
+        console.log('Target combination:', this.targetCombination); // For debugging
+    }
+
+    createBoard() {
+        this.board.innerHTML = '';
         for (let i = 0; i < this.maxGuesses; i++) {
             const row = document.createElement('div');
-            row.className = 'row';
-            row.id = `row-${i}`;
-            
+            row.className = 'guess-row';
             for (let j = 0; j < 5; j++) {
-                const tile = document.createElement('div');
-                tile.className = 'tile';
-                tile.id = `tile-${i}-${j}`;
-                row.appendChild(tile);
+                const cell = document.createElement('div');
+                cell.className = 'block-cell';
+                row.appendChild(cell);
             }
-            
-            board.appendChild(row);
+            this.board.appendChild(row);
         }
     }
 
-    async makeGuess(word) {
+    createBlockSelector() {
+        this.availableBlocksDiv.innerHTML = '';
+        AVAILABLE_BLOCKS.forEach(block => {
+            const blockElement = document.createElement('div');
+            blockElement.className = 'selectable-block';
+            blockElement.innerHTML = `<img src="${getBlockImagePath(block)}" alt="${block}" data-block="${block}">`;
+            blockElement.addEventListener('click', () => this.selectBlock(block));
+            this.availableBlocksDiv.appendChild(blockElement);
+        });
+    }
+
+    createCurrentGuessDisplay() {
+        this.currentGuessDiv.innerHTML = '';
+        for (let i = 0; i < 5; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'current-guess-cell';
+            if (this.currentGuess[i]) {
+                cell.innerHTML = `<img src="${getBlockImagePath(this.currentGuess[i])}" alt="${this.currentGuess[i]}">`;
+            }
+            this.currentGuessDiv.appendChild(cell);
+        }
+    }
+
+    selectBlock(block) {
+        if (this.currentGuess.length < 5 && !this.gameOver) {
+            this.currentGuess.push(block);
+            this.createCurrentGuessDisplay();
+        }
+    }
+
+    clearGuess() {
+        this.currentGuess = [];
+        this.createCurrentGuessDisplay();
+    }
+
+    submitGuess() {
+        if (this.currentGuess.length !== 5) {
+            this.showMessage('Please select 5 blocks!');
+            return;
+        }
+
         if (this.gameOver) {
-            return { success: false, message: 'Game is over!' };
+            return;
         }
 
-        if (word.length !== 5) {
-            return { success: false, message: 'Word must be 5 letters long!' };
-        }
-
-        // Check if word is valid using API
-        const isValid = await isValidWord(word);
-        if (!isValid) {
-            return { success: false, message: 'Not a valid word!' };
-        }
-
-        word = word.toUpperCase();
-        this.guesses.push(word);
+        const guess = [...this.currentGuess];
+        this.guesses.push(guess);
+        this.updateBoard(guess, this.guesses.length - 1);
         
-        // Update the board with the guess
-        this.updateBoard(word, this.currentRow);
-        
-        // Check if the guess is correct
-        if (word === this.targetWord) {
+        if (this.checkWin(guess)) {
             this.gameOver = true;
-            setTimeout(() => {
-                this.animateWin();
-            }, 1500);
-            return { success: true, message: 'Congratulations! You won!', gameWon: true };
-        }
-
-        this.currentRow++;
-
-        // Check if out of guesses
-        if (this.currentRow >= this.maxGuesses) {
+            this.showMessage('🎉 Congratulations! You guessed the combination!');
+            setTimeout(() => this.askPlayAgain(), 1500);
+        } else if (this.guesses.length >= this.maxGuesses) {
             this.gameOver = true;
-            return { 
-                success: true, 
-                message: `Game over! The word was: ${this.targetWord}`, 
-                gameLost: true 
-            };
+            this.showMessage(`Game Over! The combination was: ${this.targetCombination.join(', ')}`);
+            setTimeout(() => this.askPlayAgain(), 2000);
+        } else {
+            this.showMessage(`Guess ${this.guesses.length}/${this.maxGuesses}`);
         }
 
-        return { success: true, message: `Guess ${this.currentRow}/6` };
+        this.currentGuess = [];
+        this.createCurrentGuessDisplay();
     }
 
-    updateBoard(word, rowIndex) {
-        const letters = word.split('');
-        const targetLetters = this.targetWord.split('');
-        const letterCounts = {};
+    updateBoard(guess, rowIndex) {
+        const row = this.board.children[rowIndex];
+        const feedback = this.getFeedback(guess);
         
-        // Count letters in target word
-        targetLetters.forEach(letter => {
-            letterCounts[letter] = (letterCounts[letter] || 0) + 1;
+        guess.forEach((block, index) => {
+            const cell = row.children[index];
+            cell.innerHTML = `<img src="${getBlockImagePath(block)}" alt="${block}">`;
+            cell.className = `block-cell ${feedback[index]}`;
         });
+    }
 
-        // First pass: mark correct positions
-        const results = new Array(5).fill('absent');
-        letters.forEach((letter, index) => {
-            const tile = document.getElementById(`tile-${rowIndex}-${index}`);
-            tile.textContent = letter;
-            tile.classList.add('filled');
-            
-            if (letter === targetLetters[index]) {
-                results[index] = 'correct';
-                letterCounts[letter]--;
+    getFeedback(guess) {
+        const feedback = new Array(5).fill('incorrect');
+        const targetCopy = [...this.targetCombination];
+        const guessCopy = [...guess];
+
+        // Check for correct positions first
+        for (let i = 0; i < 5; i++) {
+            if (guessCopy[i] === targetCopy[i]) {
+                feedback[i] = 'correct';
+                targetCopy[i] = null;
+                guessCopy[i] = null;
             }
-        });
+        }
 
-        // Second pass: mark present letters
-        letters.forEach((letter, index) => {
-            if (results[index] !== 'correct' && letterCounts[letter] > 0) {
-                results[index] = 'present';
-                letterCounts[letter]--;
+        // Check for wrong positions
+        for (let i = 0; i < 5; i++) {
+            if (guessCopy[i] !== null) {
+                const targetIndex = targetCopy.indexOf(guessCopy[i]);
+                if (targetIndex !== -1) {
+                    feedback[i] = 'wrong-position';
+                    targetCopy[targetIndex] = null;
+                }
             }
-        });
+        }
 
-        // Apply colors with animation delay
-        letters.forEach((letter, index) => {
-            const tile = document.getElementById(`tile-${rowIndex}-${index}`);
-            
-            setTimeout(() => {
-                tile.classList.add('tile-flip');
-                tile.classList.add(results[index]);
-            }, index * 100);
-        });
+        return feedback;
     }
 
-    animateWin() {
-        const row = document.getElementById(`row-${this.currentRow}`);
-        row.classList.add('row-bounce');
+    checkWin(guess) {
+        return guess.every((block, index) => block === this.targetCombination[index]);
     }
 
-    animateInvalidWord() {
-        const row = document.getElementById(`row-${this.currentRow}`);
-        row.classList.add('row-shake');
-        setTimeout(() => {
-            row.classList.remove('row-shake');
-        }, 500);
+    askPlayAgain() {
+        const playAgain = confirm('Would you like to play again?');
+        if (playAgain) {
+            this.resetGame();
+        }
     }
 
-    reset() {
-        this.targetWord = getRandomWord();
-        this.currentRow = 0;
-        this.currentGuess = '';
-        this.gameOver = false;
+    resetGame() {
+        // Generate new target combination
+        this.targetCombination = getRandomBlockCombination();
+        this.currentGuess = [];
         this.guesses = [];
-        this.initializeBoard();
-        console.log('New target word:', this.targetWord); // For testing
+        this.gameOver = false;
+        
+        // Clear message
+        this.showMessage('');
+        
+        // Reinitialize the game
+        this.initializeGame();
+        
+        console.log('New target combination:', this.targetCombination); // For debugging
+    }
+
+    setupEventListeners() {
+        document.getElementById('submit-guess').addEventListener('click', () => this.submitGuess());
+        document.getElementById('clear-guess').addEventListener('click', () => this.clearGuess());
+    }
+
+    showMessage(text) {
+        this.message.textContent = text;
     }
 }

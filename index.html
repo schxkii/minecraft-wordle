@@ -3,22 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wordle Game</title>
+    <title>Minecraft Block Wordle</title>
     <link rel="stylesheet" href="src/css/styles.css">
     <link rel="stylesheet" href="src/css/animations.css">
 </head>
 <body>
     <div id="game-container">
-        <h1>Wordle Game</h1>
+        <h1>Minecraft Block Wordle</h1>
         <div id="board"></div>
-        <input type="text" id="guess-input" maxlength="5" placeholder="Enter your guess">
+        <div id="current-guess"></div>
+        <div id="block-selector">
+            <div id="available-blocks"></div>
+        </div>
         <button id="submit-guess">Submit Guess</button>
+        <button id="clear-guess">Clear Guess</button>
         <div id="message"></div>
         <footer>
-            <p>Made with ❤️ by schxkii <a href=""></a></p>
+            <p>Made with ❤️ by schxkii</p>
         </footer>
     </div>
-    <script src="src/data/words.js"></script>
+    <script src="src/data/blocks.js"></script>
     <script src="src/js/utils.js"></script>
     <script src="src/js/game.js"></script>
     <script src="src/js/app.js"></script>
